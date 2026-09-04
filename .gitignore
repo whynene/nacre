@@ -1,0 +1,24 @@
+# 真配置里有密钥，绝不进版本控制
+config.json
+
+# 数据
+*.db
+*.db-journal
+*.db-wal
+var/
+backups/
+exports/
+session_history/
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.DS_Store
+.idea/
+.vscode/
+
+# 打包产物（pip install -e . / build 会生成）
+build/
+dist/
+*.egg-info/

@@ -1,0 +1,46 @@
+[build-system]
+# license 用 PEP 639 的字符串写法（不是旧的 classifier），需要 setuptools>=77
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nacre"
+version = "0.1.0"
+description = "给长期 AI 对话用的分层记忆系统：原文 → 卡片 → 摘要 → 常驻上下文，每层可回溯"
+readme = "README.md"
+license = "AGPL-3.0-or-later"
+authors = [{ name = "whynene" }]
+keywords = ["memory", "llm", "mcp", "agent", "sqlite"]
+
+# 下限来自依赖：numpy 声明 >=3.12（其余最高只要 3.10）。
+# ⚠️ 实际只在 3.14 上开发与运行过，3.12/3.13 没测。
+requires-python = ">=3.12"
+
+dependencies = [
+    "mcp>=1.2,<2",   # fastmcp 在 2.0 换了模块路径，锁上限
+    "flask>=3,<4",
+    "jieba",
+    "requests",
+    "numpy",
+]
+
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Libraries",
+]
+
+[project.urls]
+Homepage = "https://github.com/whynene/nacre"
+Source = "https://github.com/whynene/nacre"
+
+[project.scripts]
+nacre-mcp = "nacre.mcp_server:main_cli"
+nacre-review = "nacre.review_app:main_cli"
+
+[tool.setuptools]
+packages = ["nacre"]
+
+[tool.setuptools.package-data]
+nacre = ["templates/*.html"]

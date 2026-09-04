@@ -1,0 +1,749 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>记忆库 · 质检台</title>
+<style>
+:root { --bg:#faf9f6; --card:#fff; --ink:#2b2a28; --muted:#8a857c; --line:#e8e4dc; --accent:#7a6a56; --warn:#b3541e; --ok:#5c7a56; --her:#b0708f; --vis:#4a7fa8; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg:#1c1b19; --card:#262421; --ink:#e8e4dc; --muted:#918b80; --line:#3a3733; --accent:#c0ab8e; --warn:#e08a4e; --ok:#8fb086; --her:#d09ab5; --vis:#7db4d8; }
+}
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.7 -apple-system,"PingFang SC","Hiragino Sans GB",sans-serif; }
+.wrap { max-width:960px; margin:0 auto; padding:24px 16px 80px; }
+h1 { font-size:20px; font-weight:600; margin:0 0 4px; }
+.stats { color:var(--muted); font-size:13px; margin-bottom:16px; }
+.stats b { color:var(--ink); font-weight:600; }
+.banner { background:color-mix(in srgb, var(--warn) 12%, var(--card)); border:1px solid var(--warn); color:var(--warn); border-radius:8px; padding:8px 12px; font-size:13px; margin-bottom:12px; }
+.banner.calm { background:color-mix(in srgb, var(--ok) 10%, var(--card)); border-color:var(--ok); color:var(--ok); }
+nav { display:flex; gap:4px; border-bottom:1px solid var(--line); margin-bottom:16px; flex-wrap:wrap; }
+nav a { padding:8px 14px; text-decoration:none; color:var(--muted); border-bottom:2px solid transparent; font-size:14px; }
+nav a.on { color:var(--ink); border-color:var(--accent); font-weight:600; }
+nav a .dot { display:inline-block; background:var(--warn); color:#fff; border-radius:9px; font-size:11px; padding:0 6px; margin-left:4px; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:10px; }
+.card .meta { color:var(--muted); font-size:12.5px; }
+.card .content { margin:4px 0 6px; }
+.badge { display:inline-block; font-size:12px; border:1px solid var(--line); border-radius:5px; padding:0 6px; margin-right:4px; color:var(--muted); }
+.badge.core { border-color:var(--accent); color:var(--accent); }
+/* 第二区（前人的路）——试点质检时要一眼分得出，所以给它自己的颜色 */
+.badge.zone2 { border-color:#7c6cd8; color:#7c6cd8; }
+/* 🔴 「关于她」的第三种视觉标记。刻意跟「核心」「前人的路」都不同色 */
+.badge.her { border-color:var(--her); color:var(--her); }
+.badge.retracted, .badge.superseded { text-decoration:line-through; }
+.acts { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+.acts form { display:inline; }
+button { font:13px/1 inherit; padding:5px 10px; border:1px solid var(--line); border-radius:6px; background:transparent; color:var(--ink); cursor:pointer; }
+button:hover { border-color:var(--accent); color:var(--accent); }
+button.danger:hover { border-color:var(--warn); color:var(--warn); }
+details { margin-top:6px; }
+details summary { cursor:pointer; font-size:13px; color:var(--muted); }
+input[type=text], input[type=number], select, textarea { font:14px inherit; padding:6px 8px; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--ink); }
+input[name=content] { width:100%; margin:6px 0; }
+.searchbar { display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; align-items:center; }
+.searchbar input[type=text] { flex:1; min-width:180px; }
+.empty { color:var(--muted); padding:32px 0; text-align:center; }
+pre.coremd, pre.plain { white-space:pre-wrap; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; font:13.5px/1.8 ui-monospace,Menlo,monospace; }
+.evline { font-size:13px; color:var(--muted); margin-bottom:4px; }
+.sect { font-size:15px; font-weight:600; margin:22px 0 10px; }
+.sect:first-child { margin-top:0; }
+.sect .meta-inline { font-weight:400; font-size:13px; color:var(--muted); margin-left:6px; }
+.dash { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.dash .card { margin-bottom:0; }
+.dash .full { grid-column:1 / -1; }
+@media (max-width:640px) { .dash { grid-template-columns:1fr; } }
+.dash h3 { font-size:13px; font-weight:600; color:var(--muted); margin:0 0 10px; }
+.bar-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:13px; }
+.bar-row .lbl { flex:0 0 92px; color:var(--muted); }
+.bar-row .track { flex:1; }
+.bar-row .bar { height:14px; background:var(--accent); border-radius:0 4px 4px 0; }
+.bar-row .bar.zero { width:2px; height:14px; background:var(--line); border-radius:0; }
+.bar-row .num { flex:0 0 40px; text-align:right; font-variant-numeric:tabular-nums; }
+.cost { display:flex; align-items:flex-end; gap:2px; height:72px; }
+.cost .col { flex:1; background:var(--accent); border-radius:3px 3px 0 0; }
+.cost .col.zero { height:2px; background:var(--line); border-radius:0; }
+.cost-x { display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin-top:4px; }
+.cover { margin-bottom:12px; font-size:13px; }
+.cover:last-child { margin-bottom:0; }
+.cover .track { height:8px; background:var(--line); border-radius:4px; overflow:hidden; margin-top:5px; }
+.cover .fill { height:100%; background:var(--accent); border-radius:4px; }
+.hotline { font-size:13px; margin-bottom:6px; }
+.hotline .n { color:var(--accent); font-weight:600; font-variant-numeric:tabular-nums; }
+.tile { display:flex; gap:18px; flex-wrap:wrap; }
+.tile .one { min-width:96px; }
+.tile .big { font-size:26px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1.2; }
+.tile .cap { font-size:12px; color:var(--muted); }
+/* 一件事一屏：卡 ↔ 桥 ↔ 表态 */
+.pair { display:grid; grid-template-columns:1fr 24px 300px; align-items:start; gap:0; }
+@media (max-width:760px) { .pair { grid-template-columns:1fr; } .pair .bridge { height:18px; width:100%; } }
+.pair .bridge { display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:15px; }
+.pair .side { }
+.pair .side .card { background:transparent; border-style:dashed; }
+/* 「模型可见吗」的自动底色——**新增字段不需要人记得改样式**：
+   底色由 field_visibility 派生，模板这里只认三种状态，不认字段名。 */
+.f { display:inline-block; font-size:12px; border-radius:5px; padding:1px 7px; margin:2px 4px 2px 0; border:1px solid var(--line); }
+.f .k { color:var(--muted); margin-right:5px; }
+.f.visible { background:color-mix(in srgb, var(--vis) 14%, transparent); border-color:var(--vis); }
+.f.hidden { background:transparent; color:var(--muted); }
+.f.unregistered { background:color-mix(in srgb, var(--warn) 16%, transparent); border-color:var(--warn); color:var(--warn); }
+.legend { font-size:12px; color:var(--muted); margin:6px 0 12px; }
+.finding { border-left:3px solid var(--warn); padding:8px 12px; margin-bottom:8px; background:var(--card); border-radius:0 8px 8px 0; }
+.finding.ok { border-left-color:var(--ok); }
+.finding .n { font-weight:600; }
+.finding .c { font-size:12px; color:var(--muted); margin-left:6px; }
+.ro { font-size:12.5px; color:var(--muted); border:1px dashed var(--line); border-radius:6px; padding:2px 8px; display:inline-block; }
+table.fv { width:100%; border-collapse:collapse; font-size:13px; }
+table.fv td, table.fv th { border-bottom:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; }
+table.fv th { color:var(--muted); font-weight:600; font-size:12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>记忆库 · 质检台</h1>
+  <div class="stats">
+    账本 <b>{{ stats.messages }}</b> 条消息 · 在册记忆 <b>{{ stats.memories }}</b> 张 ·
+    核心 <b>{{ stats.core }}/{{ stats.core_quota }}</b> ·
+    向量通道 <b>{{ '已启用' if embedding_on else '未配置' }}</b>
+  </div>
+  {% if not embedding_on %}
+  <div class="banner">⚠️ 向量语义检索未启用：config.json → embedding.api_key 填入硅基流动 Key 后生效。当前 recall 仅走关键词通道。</div>
+  {% endif %}
+  {% for w in warnings %}<div class="banner">{{ w }}</div>{% endfor %}
+
+  <nav>
+    {% for key, label in tabs %}
+    <a href="/?tab={{ key }}" class="{{ 'on' if tab==key }}">{{ label }}{% if key=='log' and stats.unseen_alerts %}<span class="dot">{{ stats.unseen_alerts }}</span>{% endif %}{% if key=='today' and stats.todo %}<span class="dot">{{ stats.todo }}</span>{% endif %}</a>
+    {% endfor %}
+  </nav>
+
+  {# ---------- 字段块：底色全部由 field_visibility 派生 ---------- #}
+  {% macro fields(mv) %}
+  <details>
+    <summary>字段 · 模型看得到哪些</summary>
+    <div style="margin-top:6px">
+      {% for f in mv.fields %}
+      <span class="f {{ f.state }}" title="{{ f.note }}"><span class="k">{{ f.label }}</span>{{ f.value|string|truncate(60, True, '…') }}</span>
+      {% endfor %}
+    </div>
+    <div class="legend">蓝底＝模型读得到 · 无底＝只给人看 · <span style="color:var(--warn)">橙底＝这一列还没登记</span>（fail closed 当成不可见，但那是缺口，不是决定）</div>
+  </details>
+  {% endmacro %}
+
+  {# ---------- 一张卡。acts=false 时**一个按钮都不渲染** ---------- #}
+  {% macro memory_card(mv, acts=true) %}
+  <div class="card">
+    <div class="meta">
+      #{{ mv.row['id'] }}
+      <span class="badge">{{ mv.kind_label }}</span>
+      {% if mv.row['is_core'] %}<span class="badge core">核心</span>{% endif %}
+      {% if mv.row['about_her'] %}<span class="badge her">关于她</span>{% endif %}
+      {% if mv.row['is_foundation'] %}<span class="badge">奠基层{% if mv.row['foundation_category'] %} · {{ mv.row['foundation_category'] }}{% endif %}</span>{% endif %}
+      {% if mv.row['is_fragment'] %}<span class="badge">碎片</span>{% endif %}
+      {% if mv.zone_label %}<span class="badge zone2">{{ mv.zone_label }}</span>{% endif %}
+      {% if mv.row['sink'] and mv.row['sink'] != 'active' %}<span class="badge">{{ '已降权' if mv.row['sink']=='resolved' else '已入档' }}</span>{% endif %}
+      {% if mv.row['status'] != 'active' %}<span class="badge {{ mv.row['status'] }}">{{ {'retracted':'已否决','superseded':'已被覆盖','memento':'纪念品','disputed':'存疑'}.get(mv.row['status'], mv.row['status']) }}</span>{% endif %}
+      <span class="badge">{{ mv.row['author_window'] or mv.row['author'] }}</span>
+      {# 🔴 事发日。缺就空着——**绝不拿整理日冒充**。
+         整理日在后面单独一格，标着「整理于」，两个日期分开各显示各的。 #}
+      {% if mv.happened_on %}{{ mv.happened_on }}{% else %}<span class="meta" title="这张卡既没有事发日，也回落不到源消息那天。空着比给一个整理日诚实">发生日期不详</span>{% endif %}
+      {% if mv.filed_on %}<span class="meta">· 整理于 {{ mv.filed_on }}</span>{% endif %}
+      {% if mv.src_window %}｜出自 {{ mv.src_window }}{% endif %}
+      {% if mv.entities %}｜{{ mv.entities|join('、') }}{% endif %}
+      {% if mv.row['supersedes'] %}｜覆盖 #{{ mv.row['supersedes'] }}{% endif %}
+      {% if mv.row['write_context'] %}｜写于「{{ mv.row['write_context'] }}」{% endif %}
+    </div>
+    <div class="content">{{ mv.row['content'] }}</div>
+    <div class="meta">{{ mv.src }}</div>
+    {{ fields(mv) }}
+    {% if acts and mv.row['status'] == 'active' %}
+    <div class="acts" style="margin-top:8px">
+      <form method="post" action="/memory/{{ mv.row['id'] }}/core"><button>{{ '取消核心' if mv.row['is_core'] else '设为核心' }}</button></form>
+      <form method="post" action="/memory/{{ mv.row['id'] }}/about_her"><button>{{ '取消「关于她」' if mv.row['about_her'] else '标「关于她」' }}</button></form>
+      <form method="post" action="/memory/{{ mv.row['id'] }}/retract" onsubmit="return confirm('否决这张卡？卡片会保留但退出检索（不物理删除）。')"><button class="danger">否决</button></form>
+      <details>
+        <summary>修正（新卡盖旧卡）</summary>
+        <form method="post" action="/memory/{{ mv.row['id'] }}/supersede">
+          <div class="meta" style="margin:6px 0">
+            <b>这次改的是什么？</b>（可多选）
+            <label style="margin-left:8px"><input type="checkbox" name="change" value="wording"> 改说法</label>
+            <label style="margin-left:10px"><input type="checkbox" name="change" value="fact"> 改事实</label>
+            <div style="margin-top:2px">改说法 → 新卡显示旧卡的表态（同一件事换了个说法）；改事实 → 不显示（表态的对象不存在了）。<b>两种都不通知他。</b></div>
+          </div>
+          <input type="text" name="content" placeholder="修正后的事实陈述" value="{{ mv.row['content'] }}">
+          <select name="kind">{% for k, label in [('event','事件'),('fact','事实'),('quote','原话'),('commitment','承诺'),('insight','想法')] %}<option value="{{ k }}" {{ 'selected' if mv.row['kind']==k }}>{{ label }}</option>{% endfor %}</select>
+          <select name="importance">{% for i in [1,2,3,4,5] %}<option value="{{ i }}" {{ 'selected' if mv.row['importance']==i }}>重要度 {{ i }}</option>{% endfor %}</select>
+          <input type="text" name="entities" placeholder="实体（逗号分隔，留空沿用）" style="width:180px">
+          <input type="text" name="src_quote" placeholder="原话锚点（留空沿用旧卡）" value="{{ mv.row['src_quote'] or '' }}" style="width:100%;margin-top:4px">
+          <input type="number" name="src_conversation_id" placeholder="对话 id（留空沿用）" value="{{ mv.row['src_conversation_id'] or '' }}" style="width:130px;margin-top:4px">
+          <input type="number" name="src_msg_start" placeholder="起始消息 id" value="{{ mv.row['src_msg_start'] or '' }}" style="width:120px">
+          <input type="number" name="src_msg_end" placeholder="结束消息 id" value="{{ mv.row['src_msg_end'] or '' }}" style="width:120px">
+          <textarea name="src_sentence_map" rows="3" required style="width:100%;margin-top:4px"
+                    placeholder="逐句溯源（必填，一行一句）：&#10;她说下周要出差。 <- 1&#10;我说那我把伞放你包里。 <- 2"></textarea>
+          <div class="meta" style="font-size:12px">正文改了，旧卡那份逐句溯源拼不回新正文，所以这一栏要重填。指不出来源的句子不许写。</div>
+          <button>提交修正</button>
+        </form>
+      </details>
+      {% if mv.row['kind'] in ('event', 'quote') %}
+      <details>
+        <summary>改情绪</summary>
+        <form method="post" action="/memory/{{ mv.row['id'] }}/valence">
+          <input type="number" name="valence" step="0.1" min="-1" max="1" required placeholder="v（-1~1）" value="{{ mv.row['valence'] if mv.row['valence'] is not none else '' }}" style="width:110px">
+          <input type="number" name="arousal" step="0.1" min="0" max="1" required placeholder="a（0~1）" value="{{ mv.row['arousal'] if mv.row['arousal'] is not none else '' }}" style="width:110px">
+          <button>保存</button>
+          {% if mv.row['valence'] is not none %}<button name="clear" value="1" class="danger" formnovalidate>清空</button>{% endif %}
+        </form>
+        {# 🔴 少做了什么，界面必须说出来（同上面那条核心卡）：这一栏还能手改，但没人再自动填了。 #}
+        <div class="legend">⛔ <b>夜班的自动情绪回填已下架</b>——空着<b>就是空着</b>，
+          不会有人来填；<b>清空 = 永久清空</b>，<b>不会</b>有谁再回来重新标一遍。已经标过的一律原样留着。
+          📌 现在检索、拼卡、常驻层<b>都不读这两个数</b>，只有这一页在显示。</div>
+      </details>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+  {% endmacro %}
+
+  {# ---------- 一件事一屏：卡 ↔ 桥 ↔ 表态 ---------- #}
+  {% macro one_thing(mv, acts=true) %}
+  {% if mv.stances %}
+  <div class="pair">
+    <div class="side">{{ memory_card(mv, acts) }}</div>
+    <div class="bridge">↔</div>
+    <div class="side">
+      {% for s in mv.stances %}
+      <div class="card">
+        <div class="meta">表态 · <b>{{ s.label }}</b> · {{ (s.row['created_at'] or '')[:10] }}</div>
+        <div class="content">{{ s.row['content'] }}</div>
+        <div class="meta">记录一个字不改，旁边多一条带日期的态度</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% else %}
+  {{ memory_card(mv, acts) }}
+  {% endif %}
+  {% endmacro %}
+
+  {# ================================ 今日 ================================ #}
+  {% if tab == 'today' %}
+    {# ===================== 昨晚出了什么事 ===================== #}
+    {# 🔴 只显示【连续两次失败】的。判据：报警要报"它自己解决不了的"，不报"它正在解决的"—— #}
+    {#    第一次失败它自己会段级重试、明晚还会再来一次；连着第二次还是同一个坑才该占她的注意力。#}
+    {#    📌 同一条判据：一条会误报的告警最后一定被当成噪音关掉，而它关掉那天真正的那次也一起没了。#}
+    {% if 昨晚出事 %}
+    <div class="sect">昨晚出了什么事<span class="meta-inline">设计约定 · <b>只列连续两次以上没成的</b>，失败一次它自己会重试</span></div>
+    {% for e in 昨晚出事 %}
+    <div class="banner">🔴 <b>「{{ e.步骤 }}」连续 {{ e.连续 }} 次没跑干净</b>（最近一次 {{ e.时间 }}）——
+      <b>它自己解决不了了</b>：段级重试过、明晚也重来过，还是同一个坑。<br>
+      {% if e.摘要 %}<span class="meta">{{ e.摘要|md_bold }}</span><br>{% endif %}
+      <span class="meta">没落成的那几段原文在 <code>var/未过闸/</code>——<b>先看它，再判是它写坏了还是闸太严</b>（这两件事的处置正好相反）。</span>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {# ========================= 待审：机器提议，她点头 ========================= #}
+    {# 设计上：质检的单位是「一件事」，一件事一屏，屏上要有判断所需的证据。       #}
+    {# 🔴 这一层不撞记忆卡那条（它管记忆卡，卡背后有四道闸；这两样一道都不过）。     #}
+    <div class="sect">等你点头
+      <span class="meta-inline">这两样<b>没有你这一下就一个字都不进库</b>——写卡那四道闸一道都不管它们，而它们直接进他的上下文</span>
+    </div>
+
+    {% if pending_one_liners %}
+      {% for p in pending_one_liners %}
+      <div class="card">
+        <div class="evline">这个词是谁／是什么（entities.one_liner → 常驻层⑤【几个名字】）· 提议于 {{ p.created_at }}</div>
+        <div style="font-size:17px;margin:6px 0"><b>{{ p.name }}</b>：{{ p.sentence }}</div>
+        <div class="meta">
+          {% if p.n_cards is none %}🔴 库里已经没有「{{ p.name }}」这个词了（改过名或清过库）——无处可写，只能否决。
+          {% else %}证据：这个词挂着 <b>{{ p.n_cards }}</b> 张卡{% if p.first_card %}，最早那张开头是「{{ p.first_card }}」{% endif %}。{% endif %}
+        </div>
+        {% if p.current %}<div class="banner">⚠️ 这个词库里已经有一句了：「{{ p.current }}」——<b>不会替你覆盖</b>，点通过会被拦下。</div>{% endif %}
+        {% if p.note %}<div class="meta" style="margin-top:4px">{{ p.note|md_bold }}</div>{% endif %}
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <form method="post" action="/one_liner/{{ p.event_id }}/approve"><button>通过 ✓ 写进库</button></form>
+          <form method="post" action="/one_liner/{{ p.event_id }}/reject"><button class="danger">否决 ✗ 不写库</button></form>
+        </div>
+        <div class="legend">🔴 <b>关掉页面不等于否决。</b>两颗按钮都会留痕；否决过的词夜班不会再提上来，而什么都不点的话它明晚原样再来一遍。</div>
+      </div>
+      {% endfor %}
+    {% endif %}
+
+    {% for p in pending_resident %}
+    <div class="card">
+      <div class="evline">常驻层【{{ p.slot }}】新的一条 · 提议于 {{ p.created_at }}</div>
+      <div style="font-size:17px;margin:6px 0">· {{ p.text }}</div>
+      {% if p.known_slot %}
+      <div class="meta">这一格现在 <b{% if p.over %} style="color:var(--warn)"{% endif %}>{{ p.used }}/{{ p.budget }} 字</b>{% if p.over %}（已经超了 {{ p.over }} 字）{% endif %} · 收下这条会变成 <b>{{ p.after }}</b> 字。
+        {% if p.after > p.budget %}🔴 装不下。{% endif %}
+      </div>
+      {# ===== 装不下时：把这一格现有的每一条就地摆出来，让她一次点完 ===== #}
+      {# 🔴 「通过」和「挤掉哪条」是同一个决定的两半。 #}
+      {# ⭐ 上限是功能不是限制：正因为装不下，才会有「这件事我不想再带着了」这个动作—— #}
+      {#    而那个动作是她的。**系统一个字都不许自动砍**，这里给的是选项，不是建议。 #}
+      {% if p.known_slot and p.after > p.budget %}
+      <div class="banner">🔴 <b>要收这一条，就得先撤下一条</b>——<b>系统不会替你挑</b>，也不会自动挤掉最旧的那条。
+        <div class="meta" style="margin-top:2px">挑哪条下去是你的判断。也可以什么都不撤，就让它超着——那同样是你的决定。</div>
+      </div>
+      <div class="meta" style="margin-top:6px">【{{ p.slot }}】现在装着这几条：</div>
+      {% for n in p.active %}
+      <div style="display:flex;gap:10px;align-items:flex-start;justify-content:space-between;padding:6px 0;border-top:1px solid var(--line)">
+        <div>· {{ n.text }} <span class="meta">（{{ n.len }} 字）</span></div>
+        <form method="post" action="/resident_note/{{ n.id }}/retire"><button class="danger">撤下</button></form>
+      </div>
+      {% else %}
+      <div class="empty">这一格现在一条都没有，却还是装不下——<b>这一条本身就比整格上限还长</b>。</div>
+      {% endfor %}
+      {% endif %}
+      {% else %}
+      <div class="banner">🔴 「{{ p.slot }}」不是常驻层的格名——点通过会被拦下，不猜。</div>
+      {% endif %}
+      {% if p.note %}<div class="meta" style="margin-top:4px">{{ p.note|md_bold }}</div>{% endif %}
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <form method="post" action="/resident_note/proposal/{{ p.event_id }}/approve"><button>通过 ✓ 收进这一格</button></form>
+        <form method="post" action="/resident_note/proposal/{{ p.event_id }}/reject"><button class="danger">否决 ✗ 不收</button></form>
+      </div>
+      <div class="legend">🔴 <b>关掉页面不等于否决。</b>两颗按钮都会留痕。</div>
+    </div>
+    {% endfor %}
+
+    {% if not pending_one_liners and not pending_resident %}
+      <div class="banner calm">✅ 没有等你点头的东西。（这一栏只放两样：实体一句话 · 常驻层②④ 的新条目）</div>
+    {% endif %}
+
+    {# ============ 常驻层②④：现有的每一条 + 撤下 + 字数 vs 上限 ============ #}
+    <div class="sect">常驻层现在有什么
+      <span class="meta-inline">这几句每一轮都在他手上。<b>上限是功能不是限制</b>——正因为装不下，才会有「这件事我不想再带着了」这个动作</span>
+    </div>
+    {% for s in note_slots %}
+    <div class="card">
+      <div class="evline">{{ s.slot }} ·
+        <b{% if s.over %} style="color:var(--warn)"{% endif %}>{{ s.used }}/{{ s.budget }} 字</b>
+        {% if s.over %}🔴 超了 {{ s.over }} 字{% else %}（还剩 {{ s.budget - s.used }} 字）{% endif %}
+        · {{ s.active|length }} 条
+      </div>
+      {% if s.over %}
+      <div class="banner">🔴 超了 {{ s.over }} 字，<b>系统不会自动砍</b>——这两格不许截断（截在半句上不报错，而截掉的是你自己写的句子）。
+        要么撤下一条，要么就这么超着：<b>这是你的决定，不是它的</b>。</div>
+      {% endif %}
+      {% for n in s.active %}
+      <div style="display:flex;gap:10px;align-items:flex-start;justify-content:space-between;padding:6px 0;border-top:1px solid var(--line)">
+        <div>· {{ n.text }} <span class="meta">（{{ n.len }} 字）</span></div>
+        <form method="post" action="/resident_note/{{ n.id }}/retire"><button class="danger">撤下</button></form>
+      </div>
+      {% else %}
+      <div class="empty">这一格还没有内容。</div>
+      {% endfor %}
+      {% if s.retired %}
+      <details style="margin-top:8px">
+        <summary class="meta">撤下过的 {{ s.retired|length }} 条（<b>标掉不是删掉</b>，行还在库里）</summary>
+        {% for n in s.retired %}<div class="meta" style="text-decoration:line-through;margin-top:4px">· {{ n.text }}</div>{% endfor %}
+      </details>
+      {% endif %}
+    </div>
+    {% endfor %}
+
+    <div class="sect">要你动手的<span class="meta-inline">诊断四类。新卡不在这儿——它默认放行，在「日志」里看</span></div>
+    {% if findings_bad %}
+      {% for f in findings_bad %}
+      <div class="finding">
+        <span class="n">🔴 [{{ f.cls }}] {{ f.name }}</span><span class="c">检查了 {{ f.checked }} 条</span>
+        {% if f.detail %}<div style="margin-top:3px">{{ f.detail|md_bold }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="banner calm">✅ 诊断 {{ findings_ok|length }} 项全过，没有要你动手的。</div>
+    {% endif %}
+
+    {% if sources %}
+    <div class="sect">来源分档<span class="meta-inline">设计约定</span></div>
+    {% if sources.error %}
+      <div class="banner">来源清单读不出来：{{ sources.error }}（config.json 里的 sources.registry 有问题，先修它——判不出来的一条都别登记，让它落进「没登记」显形）</div>
+    {% else %}
+      <div class="card">
+        <div>{{ sources.line }}</div>
+        {% if sources.counts.unregistered %}
+        <div class="meta" style="margin-top:6px;color:var(--warn)">
+          🔴 有 {{ sources.counts.unregistered }} 条来源没登记——它们<b>不计入任何一侧</b>。
+        </div>
+        <div class="legend" style="margin-top:8px">
+          这个来源<b>能不能给他一些他自己想不出来的东西</b>？——判据只有这一条。
+          ⭐ AI 论坛这类内容从外面来，但他去那儿不是走出圈子，<b>是走进一个更大的、所有成员互相模仿共同收敛的圈子</b> ⇒ 不算能打破圈。
+          🔴 <b>判不出来就别点</b>，让它留在这儿继续显形——猜一个比空着坏。
+        </div>
+        {% for u in unregistered %}
+        <form method="post" action="/source/register" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+          <input type="text" name="match" value="{{ u.match }}" style="width:200px" title="出处里出现这一段就算命中。默认给的是域名——整条链接只能匹配那一篇。">
+          <span class="meta">{{ u.n }} 条 ·
+            {% for s in u.samples %}{{ s|truncate(38, True, '…') }}{% if not loop.last %} · {% endif %}{% endfor %}
+          </span>
+          <button name="breaks_circle" value="1">能打破圈</button>
+          <button name="breaks_circle" value="0">同温层</button>
+        </form>
+        {% endfor %}
+        {% endif %}
+        {% for a in sources.alerts %}
+          {% if '闭环' in a %}<div class="banner" style="margin-top:8px;white-space:pre-wrap">{{ a|md_bold }}</div>{% endif %}
+        {% endfor %}
+      </div>
+    {% endif %}
+    {% endif %}
+
+    <details style="margin-top:16px">
+      <summary>全部诊断项（{{ findings_ok|length }} 项通过，每项都带"检查了多少"）</summary>
+      <div style="margin-top:8px">
+        {% for f in findings_ok %}
+        <div class="finding ok">
+          <span class="n">✅ [{{ f.cls }}] {{ f.name }}</span><span class="c">检查了 {{ f.checked }} 条</span>
+          {% if f.detail %}<div style="margin-top:3px">{{ f.detail|md_bold }}</div>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </details>
+
+  {# ================================ 日志 ================================ #}
+  {% elif tab == 'log' %}
+    <div class="sect">时间线<span class="meta-inline">只读——这一栏不改卡，卡片的按钮在「全部」里</span></div>
+    <div class="searchbar">
+      <form method="get" action="/">
+        <input type="hidden" name="tab" value="log">
+        <select name="ev" onchange="this.form.submit()">
+          <option value="all" {{ 'selected' if ev_filter=='all' }}>全部</option>
+          <option value="new" {{ 'selected' if ev_filter=='new' }}>新卡</option>
+          <option value="alert" {{ 'selected' if ev_filter=='alert' }}>预警</option>
+          <option value="retract" {{ 'selected' if ev_filter=='retract' }}>否决</option>
+          <option value="edit" {{ 'selected' if ev_filter=='edit' }}>修正</option>
+          <option value="valence" {{ 'selected' if ev_filter=='valence' }}>情绪回填</option>
+        </select>
+      </form>
+      <form method="post" action="/seen_all"><button>全部标为已读</button></form>
+    </div>
+    {% for ev in events %}
+      {% set is_alert = ev.event['type'] == 'alert' %}
+      <div class="card" style="{{ 'opacity:.55;' if ev.event['seen'] }}{{ 'border-color:var(--warn);' if is_alert and not ev.event['seen'] }}">
+        <div class="evline">{{ ev.event['created_at'] }} ·
+          {{ '情绪回填' if ev.event['type']=='edit' and (ev.event['detail'] or '').startswith('夜班情绪回填') else {'alert':'⚠️ 预警','retract':'否决记录','edit':'修正记录','new_memory':'新卡'}[ev.event['type']] }}
+          {% if not ev.event['seen'] %}<form method="post" action="/event/{{ ev.event['id'] }}/seen" style="display:inline"><button style="font-size:12px;padding:2px 8px">标为已读</button></form>{% endif %}
+        </div>
+        <div style="{{ 'color:var(--warn);font-weight:600' if is_alert }}">{{ ev.event['detail'] }}</div>
+        {% if ev.memory %}<div class="meta" style="margin-top:4px">#{{ ev.memory.row['id'] }}：{{ ev.memory.row['content'] }}</div>{% endif %}
+      </div>
+    {% else %}
+      <div class="empty">还没有记录。</div>
+    {% endfor %}
+
+  {# ================================ 注入 ================================ #}
+  {% elif tab == 'inject' %}
+    <div class="sect">常驻索引<span class="meta-inline">每一轮都在场。同一份库跑一百次，拼出来的字节要一模一样</span></div>
+    <pre class="plain">{{ resident }}</pre>
+
+    <div class="sect">「模型可见吗」字段正本<span class="meta-inline">设计约定 ｜ {{ fv_visible_n }}/{{ fv_rows|length }} 列可见。质检台的底色全按它自动派生，不靠人记得</span></div>
+    {% if fv_missing %}
+    <div class="banner">🔴 <b>memories 表有 {{ fv_missing|length }} 列没登记</b>：{{ fv_missing|join('、') }}。
+      它们 fail closed 成"不可见"——<b>不会报错，但那是缺口不是决定</b>。加列的人要回 <code>db.py</code> 的 <code>_FIELD_VISIBILITY</code> 补一行，并写清理由。</div>
+    {% endif %}
+    <div class="card">
+      <table class="fv">
+        <tr><th>字段</th><th>模型看得到吗</th><th>依据 / 理由</th></tr>
+        {% for r in fv_rows %}
+        <tr>
+          <td><span class="f {{ 'visible' if r.visible else 'hidden' }}"><span class="k">{{ r.label }}</span>{{ r.col }}</span></td>
+          <td>{{ '看得到' if r.visible else '不给' }}</td>
+          <td class="meta">{{ r.note }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+
+    <div class="sect">奠基层<span class="meta-inline">{{ foundation|length }}/{{ foundation_quota }}· 每轮固定在场</span></div>
+    {% for mv in foundation %}{{ one_thing(mv, false) }}{% else %}
+      <div class="empty">还没有奠基层段落。等她勾选。</div>
+    {% endfor %}
+
+    <div class="sect">带走标记<span class="meta-inline">设计上：一次性，换窗完成后自动清空；不占奠基层名额</span></div>
+    {% if handover %}
+      <div class="card">
+        {% for h in handover %}
+        <div class="hotline">消息 #{{ h['message_id'] }} · {{ h['window_name'] }} ·
+          {{ '她勾的' if h['marked_by']=='user' else '系统代勾' }} · {{ (h['created_at'] or '')[:16]|replace('T',' ') }}</div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty">这一窗还没有带走标记。</div>
+    {% endif %}
+
+    <div class="sect">本轮发下去的位次<span class="meta-inline">设计约定。<b>位次↔卡号的对应只有这儿看得到</b>——它一个字都不进模型侧</span></div>
+    <div class="legend">
+      他回传 <code>[卡2]</code> 表态时，指的就是下面这张表里那一行。
+      🔴 <b>位次有两条线</b>：<code>chat</code>＝自建端每轮注入 ·
+      <code>mcp</code>＝官方端自己 <code>recall</code> 查出来的那一批。
+      <b>两条线各有各的"最后一轮"</b>，互不挪动对方——所以下面「当前轮次」是分开报的。
+      ⚠️ <b>这一格也是一道人眼闸</b>：某一条线上的「最后一轮」取的是那条线的最大轮次号，
+      所以<b>往同一条线上多写一轮，就会把它的"最后一轮"挪走</b>，那一头下一次表态会静默落到别的卡上。
+      轮次号跳了、或者某一轮只有孤零零一条，就是这个症状。
+    </div>
+    {% if slots %}
+      <div class="card">
+        <div class="meta" style="margin-bottom:6px">当前轮次：{% for src, t in turn_ids.items() %}<b>{{ src }}</b> = {{ t if t is not none else '（这条线还没发过）' }}{% if not loop.last %} · {% endif %}{% endfor %}</div>
+        <table class="fv">
+          <tr><th>轮次</th><th>哪条线</th><th>位次</th><th>卡号</th><th>那张卡是什么</th></tr>
+          {% for s in slots %}
+          <tr style="{{ 'opacity:.5' if s['turn_id'] != turn_ids.get(s['source']) }}">
+            <td>{{ s['turn_id'] }}</td>
+            <td>{{ s['source'] }}</td>
+            <td><b>{{ s['slot'] }}</b></td>
+            <td>#{{ s['memory_id'] }}</td>
+            <td>{{ (s['content'] or '（这张卡不在了）')|truncate(50, True, '…') }}</td>
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
+    {% else %}
+      <div class="empty">还没有发过位次——他还没被给过任何一张现拉的卡。</div>
+    {% endif %}
+
+    <div class="sect">核心卡与开场简报<span class="meta-inline">{{ stats.core }}/{{ stats.core_quota }}{% if core_generated_at %}，简报生成于 {{ core_generated_at[:16]|replace('T', ' ') }}{% endif %}</span></div>
+    {% if core_retired_at %}
+      {# 🔴 少做了什么，界面必须说出来：「系统已经替我处理过了」和「什么都没做」长得一模一样。 #}
+      <div class="legend">
+        ⛔ <b>开场简报（核心卡重组）与近况摘要已从夜班下架</b>（按设计裁撤：与当前架构无关的部分）。
+        <br>⇒ 下面这份是<b>最后一版</b>{% if core_generated_at %}，生成于 <b>{{ core_generated_at[:10] }}</b>{% endif %}，
+        <b>此后不再更新</b>——别拿它当今天的状态看。
+        <br>它走的是旧版那条交接简报通道，<b>当前版本每一轮真正给他的东西不读它一个字</b>（那条路是记忆卡 + 常驻层）。
+        上面那几张「核心事实」卡本身<b>照常活着、照常可改</b>，下架的只是「每晚重新排版出一份简报」这一步。
+      </div>
+    {% endif %}
+    {% for mv in core_rows %}{{ memory_card(mv, false) }}{% else %}
+      <div class="empty">还没有核心卡。</div>
+    {% endfor %}
+    <pre class="coremd">{{ core_md }}</pre>
+
+  {# ================================ 关于他 ================================ #}
+  {% elif tab == 'him' %}
+    <div class="sect">自留地
+      <span class="meta-inline"><span class="ro">只读 · 一个按钮都没有</span></span>
+    </div>
+    <div class="legend">
+      🔴 <b>这一整栏没有任何操作按钮，那是设计不是没做完</b>。
+      设计上划的两侧是「她在场 → 记忆卡；她不在场 → 自留地」——这是他在她不在场时自己写下的。
+      她一旦能改、能删、能"通过"，这些笔记就变成<b>经她认可的想法</b>，撞「共识不构成证据」那条；
+      而只有🟢那一档打得破闭环，那条唯一的通道当场就关了。
+      <b>规矩要让界面兜住，不靠她忍住。</b>
+    </div>
+    {% for mv in notes %}{{ memory_card(mv, false) }}{% else %}
+      <div class="empty">自留地还是空的。写自留地的工具还没上（后端那半没做）。</div>
+    {% endfor %}
+
+    <div class="sect">他标的奠基层候选<span class="meta-inline">设计上：它一票她一票，<b>各自可见不合并</b></span></div>
+    {% for mv in his_picks %}{{ memory_card(mv, false) }}{% else %}
+      <div class="empty">他还没标过。</div>
+    {% endfor %}
+
+    <div class="sect">他最近做了什么<span class="meta-inline">设计上那张轻表：只记调了什么、何时、成没成功，<b>不存结果正文</b></span></div>
+    {% if doings %}
+      <div class="card">
+        {% for d in doings %}
+        <div class="hotline">{{ '✅' if d['ok'] else '🔴' }} {{ (d['occurred_at'] or '')[:10] }} · <b>{{ d['what'] or d['tool'] }}</b> <span class="meta">（{{ d['tool'] }}）</span></div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty">还没有工具调用记录。</div>
+    {% endif %}
+
+    <div class="sect">他想看的<span class="meta-inline">设计上的门铃：「我想读 X，因为 Y」——他只往清单里写一行，不联网</span></div>
+    {% if wishlist %}
+      <div class="card">
+        {% for w in wishlist %}
+        <div class="hotline" style="margin-bottom:10px">
+          <b>{{ w['what'] }}</b>
+          <span class="badge">{{ {'now':'现在去','queued':'排队'}.get(w['urgency'], w['urgency']) }}</span>
+          <span class="badge">{{ w['depth'] }}</span>
+          <span class="badge">{{ {'open':'待跑','running':'在跑','done':'跑完了','failed':'失败'}.get(w['status'], w['status']) }}</span>
+          <div class="meta">因为：{{ w['why'] }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty">他还没按过门铃。</div>
+    {% endif %}
+
+  {# ================================ 全部 ================================ #}
+  {% elif tab == 'all' %}
+    {# 🔴 导出。**它跟备份是两件事**：备份防"东西没了"（.db，你打不开）·
+       导出防"东西被锁在系统里"（你自己打得开、拿得走）。别合并，也别互相顶替。 #}
+    <form method="post" action="/export" style="margin-bottom:14px">
+      <button style="border-color:var(--accent);color:var(--accent);padding:8px 16px">↓ 导出全部（.zip）</button>
+      <span class="meta" style="margin-left:8px">
+        按窗口分的 <code>.md</code>（你直接点开就能读）＋ 一份 <code>.json</code>（给程序读的）。
+        <b>随时能导，导多少次都行。</b>
+      </span>
+      <div class="legend" style="margin-top:6px">
+        导出前会把每个窗口的条数跟账本核一遍，<b>对不上就整批不给你</b>——
+        一份看起来完整的导出，比没有导出更坏。
+      </div>
+    </form>
+    <div class="searchbar">
+      <form method="get" action="/" style="display:flex;gap:8px;flex:1;min-width:240px">
+        <input type="hidden" name="tab" value="all">
+        <input type="text" name="q" value="{{ q }}" placeholder="关键词或一句话（人工查看不计入访问强化）">
+        <button>搜索</button>
+      </form>
+      {% if not q %}
+      <form method="get" action="/">
+        <input type="hidden" name="tab" value="all">
+        <input type="hidden" name="view" value="{{ view }}">
+        <select name="status" onchange="this.form.submit()">
+          <option value="active" {{ 'selected' if status=='active' }}>在册</option>
+          <option value="superseded" {{ 'selected' if status=='superseded' }}>已被覆盖</option>
+          <option value="retracted" {{ 'selected' if status=='retracted' }}>已否决</option>
+          <option value="memento" {{ 'selected' if status=='memento' }}>纪念品</option>
+        </select>
+      </form>
+      {% endif %}
+    </div>
+    {# 🔴 「关于你」是**置顶预设筛选，不单开 tab** #}
+    <div class="searchbar" style="gap:6px">
+      <a href="/?tab=all"><button {{ 'style=border-color:var(--accent)' if not view and not q }}>全部</button></a>
+      <a href="/?tab=all&view=her"><button {{ 'style=border-color:var(--her);color:var(--her)' if view=='her' }}>关于你 · {{ her_n }}</button></a>
+      <a href="/?tab=all&view=fragment"><button {{ 'style=border-color:var(--accent)' if view=='fragment' }}>碎片</button></a>
+      <a href="/?tab=all&view=disputed"><button {{ 'style=border-color:var(--warn)' if view=='disputed' }}>存疑</button></a>
+    </div>
+    {% if view == 'her' %}
+    <div class="legend">「关于她」不是一个分区，是<b>从已有四环卡里标出来的一个视图</b>——不新增卡、不新增蒸馏动作。
+      挑选四步：模型宽松提候选 → <b>她 pick</b> → 模型反向校验 → <b>不符合只警告，不替她动作</b>。</div>
+    {% endif %}
+
+    <details class="card">
+      <summary>手动添加一张卡（author=user）</summary>
+      <div class="meta" style="margin:6px 0 8px">
+        写卡四条：① <b>零背景可读</b>——人名代称都要交代，禁用「这个窗口/本次/今天」，窗口写名称；
+        <b>时间要可核实：哪一天由 occurred_at 那一格承担（卡面会自己把日期拼出来），正文里不写具体日期数字</b>；
+        ② <b>只存证据不存指令</b>——写「她表达了希望 X」，不写「你要 X」；
+        ③ <b>原话必填</b>——最承重的那句，一字不差。
+        {# 🔴 跨入口红线。口径正本在 nightly.py 的 EXTRACT_RULES，这里照抄不另发明措辞。 #}
+        ④ 🔴 <b>日期只写在这一格（occurred_at），正文里不许再写一遍具体日期</b>——
+        ❌「2026-01-01 我们在做某件事……」❌「1月1日那天……」 ✅「凌晨，我们在做某件事……」。卡面会自己从字段把日期拼出来，
+        正文再写一遍就是同一个日期存了两遍，而两遍会打架，<b>且没有任何东西会报错</b>。
+        要禁的是<b>具体日期数字</b>（2020-01-01 / 1月1日 / 2020 年 1 月），<b>不是「时间感」</b>：
+        「那天下午」「隔了两轮」「凌晨」照写不误。
+        ⚠️ <b>这条禁的是【本卡事发日那个日期】</b>。正文里若要提<b>【另一个】日期</b>（她承诺的截止日、
+        某个到期日、某个纪念日），<b>照写</b>：那不是重复，occurred_at 存不了它。
+        判据一句话：<b>这个日期，occurred_at 装得下吗？装不下就该写在正文里。</b>
+      </div>
+      <form method="post" action="/add">
+        <input type="text" name="content" placeholder="事实陈述，如：她表达了希望周末不聊工作（哪一天填右边 occurred_at，正文不写）">
+        <select name="kind"><option value="fact">事实</option><option value="event">事件</option><option value="quote">原话</option><option value="commitment">承诺</option><option value="insight">想法</option></select>
+        <select name="importance"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option></select>
+        <input type="text" name="entities" placeholder="实体（逗号分隔）" style="width:160px">
+        <input type="text" name="occurred_at" placeholder="事发日期（可空）" style="width:130px">
+        <input type="text" name="src_quote" required placeholder="原话锚点（必填）：把最承重的那句原话一字不差拷进来" style="width:100%;margin-top:4px">
+        <input type="number" name="src_conversation_id" required placeholder="对话 id" style="width:110px;margin-top:4px">
+        <input type="number" name="src_msg_start" required placeholder="起始消息 id" style="width:120px">
+        <input type="number" name="src_msg_end" required placeholder="结束消息 id" style="width:120px">
+        <textarea name="src_sentence_map" rows="3" required style="width:100%;margin-top:4px"
+                  placeholder="逐句溯源（必填，一行一句）：&#10;她说下周要出差。 <- 1&#10;我说那我把伞放你包里。 <- 2"></textarea>
+        <div class="meta" style="font-size:12px">
+          原话要能回账本那个区间里逐字对上；每一句都要指出来自哪条消息——<b>指不出来源的句子，本来就不该写</b>。
+        </div>
+        <button>入库</button>
+      </form>
+    </details>
+
+    {% for mv in memories %}{{ one_thing(mv, true) }}{% else %}
+      <div class="empty">{{ '没有查到相关卡片。' if q else '这一档还没有卡片。' }}</div>
+    {% endfor %}
+
+  {# ================================ 看板 ================================ #}
+  {% elif tab == 'dash' %}
+    {% macro dist(title, items) %}
+    <div class="card">
+      <h3>{{ title }}</h3>
+      {% for it in items %}
+      <div class="bar-row">
+        <span class="lbl">{{ it.label }}</span>
+        <span class="track">{% if it.n %}<div class="bar" style="width:{{ it.pct }}%"></div>{% else %}<div class="bar zero"></div>{% endif %}</span>
+        <span class="num">{{ it.n }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endmacro %}
+    <div class="legend">
+      🔴 <b>这块看板刻意不做趋势折线</b>——数字画成一条往上走的线，人就会想让它往上走。
+      每一张都是「<b>现在是什么状态</b>」，没有一张是「比上周多还是少」。
+      <b>唯一的例外是 token 花费</b>：那是资源不是行为。
+    </div>
+    <div class="dash">
+      <div class="card full">
+        <h3>现在是什么状态</h3>
+        <div class="tile">
+          <div class="one"><div class="big">{{ dash.active_n }}</div><div class="cap">在册卡</div></div>
+          <div class="one"><div class="big">{{ dash.found_n }}</div><div class="cap">奠基层</div></div>
+          <div class="one"><div class="big">{{ dash.her_n }}</div><div class="cap">关于她</div></div>
+          <div class="one"><div class="big">{{ dash.frag_n }}</div><div class="cap">碎片</div></div>
+          <div class="one"><div class="big">{{ dash.never_used }}</div><div class="cap">从没被调用</div></div>
+        </div>
+      </div>
+      {{ dist('在册卡 · 按类型', dash.kind) }}
+      {{ dist('全部卡 · 按状态', dash.status) }}
+      {{ dist('在册卡 · 按来源', dash.author) }}
+      {{ dist('自留地 · 来源档', dash.trigger) }}
+      {{ dist('表态 · 四态分布', dash.stance) }}
+      <div class="card">
+        <h3>系统健康 · 覆盖率（在册 {{ dash.active_n }} 张）</h3>
+        <div class="cover">
+          向量覆盖 {{ dash.vec_n }} / {{ dash.active_n }}（{{ dash.vec_pct }}%）
+          <div class="track"><div class="fill" style="width:{{ dash.vec_pct }}%"></div></div>
+        </div>
+        <div class="cover">
+          溯源覆盖 {{ dash.src_n }} / {{ dash.active_n }}（{{ dash.src_pct }}%）
+          <div class="track"><div class="fill" style="width:{{ dash.src_pct }}%"></div></div>
+        </div>
+        <div class="cover">
+          逐句溯源覆盖 {{ dash.trace_n }} / {{ dash.active_n }}（{{ dash.trace_pct }}%）
+          <div class="track"><div class="fill" style="width:{{ dash.trace_pct }}%"></div></div>
+        </div>
+      </div>
+      <div class="card full">
+        <h3>token 花费 · 近 {{ dash.cost.days if dash.cost else 30 }} 天<span style="font-weight:400;color:var(--muted)">　—— 看板上唯一的趋势图：资源不是行为</span></h3>
+        {% if not dash.cost %}
+          <div class="meta">用量表还没建。<b>这里如实显示"还没有"，不画一条空线假装在监控。</b></div>
+        {% elif not dash.cost.has_data %}
+          <div class="meta">一条用量都没记——<b>这跟"这几天没花钱"不是一回事</b>，先看「今日」里 C 类那条。</div>
+        {% else %}
+          <div class="cost">
+            {% for s in dash.cost.series %}
+            <div class="col {{ 'zero' if not s.tok }}" {% if s.tok %}style="height:{{ s.pct }}%"{% endif %} title="{{ s.d }} · {{ s.tok }} token · ${{ s.usd }} · {{ s.n }} 轮"></div>
+            {% endfor %}
+          </div>
+          <div class="cost-x"><span>{{ dash.cost.series[0].d[5:] }}</span><span>合计 ${{ dash.cost.total_usd }} · {{ dash.cost.total_turns }} 轮</span><span>{{ dash.cost.series[-1].d[5:] }}</span></div>
+          <div class="meta" style="margin-top:6px">这是我们自己数的，<b>可能跟官方对不上</b>——"五小时用了百分之多少"那个口径拿不到。</div>
+        {% endif %}
+      </div>
+      <div class="card full">
+        <h3>访问热度 · 从未被访问 {{ dash.never_used }} 张</h3>
+        {% for r in dash.top_used %}
+        <div class="hotline"><span class="n">{{ r['use_count'] }} 次</span> #{{ r['id'] }} · {{ r['content']|truncate(42, True, '…') }}</div>
+        {% else %}
+        <div class="meta">还没有卡被 recall 调用过。</div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+</div>
+<script>
+document.addEventListener('submit', function (e) {
+  if ((e.target.method || '').toLowerCase() === 'post') {
+    sessionStorage.setItem('ql_scroll', JSON.stringify({ u: location.href, y: window.scrollY }));
+  }
+});
+(function () {
+  var raw = sessionStorage.getItem('ql_scroll');
+  if (!raw) return;
+  sessionStorage.removeItem('ql_scroll');
+  try {
+    var s = JSON.parse(raw);
+    if (s.u === location.href) window.scrollTo(0, s.y);
+  } catch (err) {}
+})();
+</script>
+</body>
+</html>

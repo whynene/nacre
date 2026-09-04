@@ -1,0 +1,128 @@
+{
+  "_说明": "拷成 config.json 再填。config.json 已在 .gitignore 里——里面有密钥，不要提交。",
+
+  "db_path": "memory.db",
+  "_is_primary": "这台机器是不是真数据库所在处。只有主库那一台填 true，其它机器保持 false：打开真库会被直接拒绝，防止安静地读写一份过期副本。跑测试/演示不受影响，它们会明确指定库文件。",
+  "is_primary": false,
+
+  "_local_utc_offset_hours": "使用者在哪个时区（相对 UTC 的小时数）。账本里 created_at 存 UTC，蒸馏要按这个偏移换算成当地时间再喂给模型——不换的话模型会照抄 UTC 日期，跨零点的对话会被标早一天。",
+  "local_utc_offset_hours": 8,
+
+  "embedding": {
+    "_说明": "向量检索用的嵌入模型。api_key 留空则只走关键词检索。",
+    "provider": "siliconflow",
+    "base_url": "https://api.siliconflow.cn/v1/embeddings",
+    "api_key": "",
+    "model": "BAAI/bge-m3"
+  },
+
+  "recall": { "alpha": 0.5, "default_limit": 5, "max_limit": 20 },
+  "decay": { "half_life_days": 90 },
+
+  "nightly": {
+    "_说明": "每天自动跑一次的蒸馏。model 留空＝拒绝开跑，不走默认——默认模型哪天变了没有任何东西会提醒你换了个人。effort 为 null＝刻意不传这个参数；空字符串一律拒跑（那是「有人把它清空了」，意图不明）。",
+    "claude_bin": "claude",
+    "model": "",
+    "effort": null,
+    "_便宜档": "写进库的用贵的，等人点头的用便宜的：候选类的产出一个字都不写进库，只落待审。",
+    "model_cheap": "",
+    "effort_cheap": null,
+    "hour": 7,
+    "minute": 0
+  },
+
+  "review_app": {
+    "_说明": "质检台（人工审卡的网页）。只监听回环——它一道锁都没有，要远程看请走 SSH 隧道。",
+    "host": "127.0.0.1",
+    "port": 8787
+  },
+
+  "mcp_http": {
+    "_说明": "把记忆库经 HTTP 暴露出去的开关。不需要远程访问就整块留着不动。",
+    "_path": "唯一的门锁：必须换成你自己生成的随机串（末段至少 16 个字符）。留空或留占位符则拒绝启动。⚠️ 密钥放在 URL 里会被沿途每一层记进日志——确认反向代理没开 access log。",
+    "path": "",
+    "host": "127.0.0.1",
+    "port": 8765,
+    "allowed_hosts": ["your-domain.example", "127.0.0.1:8765"],
+    "allowed_origins": ["https://claude.ai"]
+  },
+
+  "chat": {
+    "_说明": "对话中转层。整块留空则拒绝启动——带着默认值跑起来的门锁等于没有门锁。⚠️ 本仓库不含前端页面，这一块要配合你自己的前端使用。",
+    "path": "",
+    "password": "",
+    "secret_key": "",
+    "_cwd": "必须是仓库外的干净空目录。claude 会加载 cwd 下的 CLAUDE.md 与 .claude/skills，仓库那份是给开发者看的规矩，不该进模型的上下文。定死之后别再动：cwd 一变，历史会话文件就散在两个目录里。",
+    "cwd": "/opt/runtime",
+    "seed": "",
+    "projects_dir": "",
+    "history_dir": "/opt/session_history",
+    "host": "127.0.0.1",
+    "port": 8788,
+    "_model": "必须写死，不许留空。留空＝走默认，而默认哪天变了，模型就在使用者不知道的情况下换了一个，且没有任何东西会提醒。",
+    "model": "",
+    "default_effort": "high",
+    "poll_interval_seconds": 8
+  },
+
+  "telegram": {
+    "_说明": "Telegram 桥。整段不填＝桥拒绝启动，而不是带着默认值跑起来——一个没有白名单的桥意味着任何人对它说话都会真发一次请求。⚠️ Bot 聊天没有端到端加密，内容明文存在 Telegram 服务器上。",
+    "_token": "BotFather 给的那串。别写进任何文档、别贴进对话记录。",
+    "token": "",
+    "_allowed_chat_ids": "白名单，只放你自己的 chat_id，其余静默不响应。拿法：填好 token 后给 bot 发一句话，跑 `python -m nacre.tg_bridge --whoami`。空数组不许启动。",
+    "allowed_chat_ids": [],
+    "poll_timeout": 30,
+    "split_style": "paragraph",
+    "split_min_chars": 40,
+    "split_max_messages": 4,
+    "show_thinking": true,
+    "show_tools": true,
+    "show_usage": true,
+    "tool_spoiler_budget": 700,
+    "mirror_web": true
+  },
+
+  "tools": {
+    "_说明": "工具注册表。builtin 走 --tools（做得到「模型看不见」）；mcp 走 --allowedTools（只做得到「调不着」，说明书照样每轮进上下文）。两者不是一件事的两种写法。",
+    "_irreversible": "一个勾：这个工具会不会花钱／把东西发给别人／控制设备？勾了就在装之前多一次确认。",
+    "registry": []
+  },
+
+  "foraging": {
+    "_说明": "隔离会话取材：外部材料在一个没有记忆库、没有个人信息、没有能碰记忆库的工具的一次性会话里读，只有笔记和出处回主会话。",
+    "_两个上限": "是两个数不是一个。只设一个会朝两个相反方向坏：大了整篇文章当「笔记」抄回来；小了把诗、歌词、某个人的文风压死——那类内容语言本身就是内容。",
+    "note_max_chars": 1200,
+    "quote_max_chars": 600,
+    "cwd": "/opt/forage",
+    "timeout": 600
+  },
+
+  "sources": {
+    "_说明": "来源清单。每条回答一句：这个来源能不能提供模型自己想不出来的东西。判不出来的就别登记，让它落进「没登记」那一档去显形。",
+    "registry": []
+  },
+
+  "v3": {
+    "_说明": "阈值与词表。整块不填就用 nacre/config.py 里的默认值。",
+    "_verdict_patterns": "判语粗筛词表，只扫引号外的正文；命中只标黄送人工审，不拒。",
+    "verdict_patterns": [
+      "是[^，。；！？\n]{0,12}的(起点|转折点|本质|核心|缩影)",
+      "(意味着|标志着|代表着|体现了|反映了|说明了)",
+      "最[^，。；！？\n]{0,10}的一(次|个)",
+      "这(件事|段|次)(是|让|使)",
+      "(核心)?结论[:：]"
+    ],
+    "_deictic_patterns": "禁用指示词词表：卡片要脱离当时的上下文也能读懂，所以「这个窗口」「刚才」这类词要标出来。同样只标黄不拒。",
+    "deictic_patterns": ["这个窗口", "当前实例", "本次", "今天", "刚才"],
+    "cache_write_daily_expected": 2,
+    "coverage_gap_min_run": 100,
+    "_one_liner_exclude": "不需要额外解释的通用词（地名、技术名词一类）。这份清单一定会长，所以放配置不放代码。",
+    "one_liner_exclude": [],
+    "foundation_quota": 20,
+    "foundation_open_quota": 5,
+    "recent_layer_max_turns": 50,
+    "handover_warn_ratio": 0.7,
+    "resident_index_file": "var/resident-{date}.txt",
+    "resident_index_channel": "system"
+  }
+}

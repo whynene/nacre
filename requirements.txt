@@ -1,0 +1,6 @@
+# mcp 锁上限：fastmcp 在 2.0 里换了模块路径，不锁会在新机器上 ImportError
+mcp>=1.2,<2
+flask>=3,<4
+jieba
+requests
+numpy
